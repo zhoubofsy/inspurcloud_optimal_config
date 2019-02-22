@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: elk-es-data-pv
+  labels:
+    name: elk-es-data-pv
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: "/data/elk/es/data"
+    server: 10.46.169.247
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-elk
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elk-es-data-pvc
+  namespace: ns-elk
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  selector:
+    matchLabels:
+      name: elk-es-data-pv
+
+---
+
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: elk-rc
+  labels:
+    name: elk-rc
+  namespace: ns-elk
+spec:
+  replicas: 1
+  selector:
+    name: elk-rc
+  template:
+    metadata:
+      labels:
+        name: elk-rc
+    spec:
+      containers:
+      - name: elk-rc-container
+        image: sebp/elk
+        volumeMounts:
+        - mountPath: /var/lib/elasticsearch
+          name: es-data-volume
+        ports:
+        - containerPort: 5601
+        - containerPort: 9200
+        - containerPort: 5044
+      volumes:
+      - name: es-data-volume
+        persistentVolumeClaim:
+          claimName: elk-es-data-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elk-kb-svc
+  labels:
+    name: elk-kb-svc
+  namespace: ns-elk
+spec:
+  type: NodePort
+  selector:
+    name: elk-rc
+  ports:
+  - port: 5601
+    targetPort: 5601
+    nodePort: 31056
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elk-es-svc
+  labels:
+    name: elk-es-svc
+  namespace: ns-elk
+spec:
+  type: NodePort
+  selector:
+    name: elk-rc
+  ports:
+  - port: 9200
+    targetPort: 9200
+    nodePort: 31092
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elk-ls-svc
+  labels:
+    name: elk-ls-svc
+  namespace: ns-elk
+spec:
+  type: NodePort
+  selector:
+    name: elk-rc
+  ports:
+  - port: 5044
+    targetPort: 5044
+    nodePort: 31050

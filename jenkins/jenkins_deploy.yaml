@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: jenkins-data-pv
+  labels:
+    name: jenkins-data-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: "/data/jenkins"
+    server: 10.46.169.247
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-jenkins
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-data-pvc
+  namespace: ns-jenkins
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  selector:
+    matchLabels:
+      name: jenkins-data-pv
+
+---
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: jenkins-rc
+  labels:
+    name: jenkins-rc
+  namespace: ns-jenkins
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: jenkins-rc
+    spec:
+      containers:
+      - name: jenkins-rc-container
+        image: jenkins/jenkins
+        volumeMounts:
+        - mountPath: /var/jenkins_home
+          name: jenkins-data-volume
+        ports:
+        - containerPort: 8080
+        - containerPort: 50000
+      volumes:
+      - name: jenkins-data-volume
+        persistentVolumeClaim:
+          claimName: jenkins-data-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-svc
+  labels:
+    name: jenkins-svc
+  namespace: ns-jenkins
+spec:
+  type: NodePort
+  selector:
+    name: jenkins-rc
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+    nodePort: 31188

@@ -1,0 +1,168 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: gitlab-config-pv
+  labels:
+    name: gitlab-config-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: "/data/gitlab/config"
+    server: 10.46.169.247
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: gitlab-log-pv
+  labels:
+    name: gitlab-log-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: "/data/gitlab/log"
+    server: 10.46.169.247
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: gitlab-data-pv
+  labels:
+    name: gitlab-data-pv
+spec:
+  capacity:
+    storage: 95Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: "/data/gitlab/data"
+    server: 10.46.169.247
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-gitlab
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: config-pvc
+  namespace: ns-gitlab
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  selector:
+    matchLabels:
+      name: gitlab-config-pv
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: log-pvc
+  namespace: ns-gitlab
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  selector:
+    matchLabels:
+      name: gitlab-log-pv
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+  namespace: ns-gitlab
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 95Gi
+  selector:
+    matchLabels:
+      name: gitlab-data-pv
+
+---
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: gitlab-rc
+  labels:
+    name: gitlab-rc
+  namespace: ns-gitlab
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: gitlab-rc
+    spec:
+      containers:
+      - name: gitlab-rc-container
+        image: gitlab/gitlab-ce
+        volumeMounts:
+        - mountPath: /etc/gitlab
+          name: gitlab-config
+        - mountPath: /var/log/gitlab
+          name: gitlab-log
+        - mountPath: /var/opt/gitlab
+          name: gitlab-data
+        ports:
+        - containerPort: 80
+      volumes:
+      - name: gitlab-config
+        persistentVolumeClaim:
+          claimName: config-pvc
+      - name: gitlab-log
+        persistentVolumeClaim:
+          claimName: log-pvc
+      - name: gitlab-data
+        persistentVolumeClaim:
+          claimName: data-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitlab-svc
+  labels:
+    name: gitlab-svc
+  namespace: ns-gitlab
+spec:
+  type: NodePort
+  selector:
+    name: gitlab-rc
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+    name: http
+    nodePort: 31080
