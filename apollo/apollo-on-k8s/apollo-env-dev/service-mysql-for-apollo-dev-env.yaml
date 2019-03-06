@@ -1,0 +1,29 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: ns-apollo
+  name: service-mysql-for-apollo-dev-env
+  labels:
+    app: service-mysql-for-apollo-dev-env
+spec:
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+  type: ClusterIP
+  sessionAffinity: None
+
+---
+
+kind: Endpoints
+apiVersion: v1
+metadata:
+  namespace: ns-apollo
+  name: service-mysql-for-apollo-dev-env
+subsets:
+  - addresses:
+      - ip: 10.46.91.115
+    ports:
+      - protocol: TCP
+        port: 3306

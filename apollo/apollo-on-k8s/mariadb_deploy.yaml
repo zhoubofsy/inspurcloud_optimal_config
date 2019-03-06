@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-apollo
+
+---
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: mariadb-rc
+  labels:
+    name: mariadb-rc
+  namespace: ns-apollo
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: mariadb-rc
+    spec:
+      hostname: mariadb
+      subdomain: service-mysql-for-apollo-dev-env
+      containers:
+      - name: mariadb-rc-container
+        image: mariadb
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "qwe123ASD#@!"
+        ports:
+        - containerPort: 3306
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-mysql-for-apollo-dev-env
+  labels:
+    app: service-mysql-for-apollo-dev-env
+  namespace: ns-apollo
+spec:
+  clusterIP: None
+  selector:
+    name: mariadb-rc

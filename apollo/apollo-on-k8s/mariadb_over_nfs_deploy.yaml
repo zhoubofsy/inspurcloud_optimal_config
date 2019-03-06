@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mariadb-data-pv
+  labels:
+    name: mariadb-data-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: "/data/apollo/mariadb/data"
+    server: 10.46.169.247
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-apollo
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb-data-pvc
+  namespace: ns-apollo
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  selector:
+    matchLabels:
+      name: mariadb-data-pv
+
+---
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: mariadb-rc
+  labels:
+    name: mariadb-rc
+  namespace: ns-apollo
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: mariadb-rc
+    spec:
+      hostname: mariadb
+      subdomain: service-mysql-for-apollo-dev-env
+      containers:
+      - name: mariadb-rc-container
+        image: mariadb
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "forapollo"
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mariadb-data-volume
+        ports:
+        - containerPort: 3306
+      volumes:
+      - name: mariadb-data-volume
+        persistentVolumeClaim:
+          claimName: mariadb-data-pvc
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-mysql-for-apollo-dev-env
+  labels:
+    app: service-mysql-for-apollo-dev-env
+  namespace: ns-apollo
+spec:
+  clusterIP: None
+  selector:
+    name: mariadb-rc
